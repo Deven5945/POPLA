@@ -74,7 +74,7 @@ class PomodoroTimer:
     def skip(self) -> None:
         self._advance_phase()
 
-    def tick(self, seconds: float = 1.0) -> bool:
+    def tick(self, seconds: int = 1) -> bool:
         """Advance time and return whether a phase boundary was crossed."""
         if seconds < 0:
             raise ValueError("경과 시간은 음수가 될 수 없습니다.")
@@ -106,6 +106,6 @@ class PomodoroTimer:
         )
 
 
-def format_seconds(seconds: float) -> str:
+def format_seconds(seconds: int) -> str:
     minutes, remaining_seconds = divmod(max(0, seconds), 60)
     return f"{minutes:02d}:{remaining_seconds:02d}"

@@ -8,13 +8,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-import time
 
 import flet as ft
-try:
-	import pygame
-except ImportError:
-	pygame = None
 
 from core.planner import Planner, Task
 from core.pomodoro import Phase, PomodoroTimer, format_seconds
@@ -23,8 +18,8 @@ from core.pomodoro import Phase, PomodoroTimer, format_seconds
 SOUND_PATH = Path(__file__).resolve().parent.parent / "sound" / "ring.mp3"
 
 
-def play_ring_native(path: Path = SOUND_PATH) -> bool:
-	"""Fallback player for systems where pygame audio is unavailable."""
+def play_ring(path: Path = SOUND_PATH) -> bool:
+	"""Play the bundled alert sound without blocking the Flet event loop."""
 	if not path.is_file():
 		return False
 
@@ -48,31 +43,6 @@ def play_ring_native(path: Path = SOUND_PATH) -> bool:
 	return True
 
 
-class SoundPlayer:
-	"""Preload the alert sound and keep native playback as a fallback."""
-
-	def __init__(self, path: Path = SOUND_PATH) -> None:
-		self.path = path
-		self.sound = None
-		self._ready = False
-		if pygame is not None and path.is_file():
-			try:
-				pygame.mixer.init()
-				self.sound = pygame.mixer.Sound(str(path))
-				self._ready = True
-			except pygame.error:
-				self.sound = None
-
-	def play(self) -> bool:
-		if self._ready and self.sound is not None:
-			try:
-				self.sound.play()
-				return True
-			except pygame.error:
-				self._ready = False
-		return play_ring_native(self.path)
-
-
 class PlannerView:
 	"""Desktop planner and Pomodoro workspace backed by shared domain services."""
 
@@ -83,7 +53,6 @@ class PlannerView:
 		self.selected_task_id: int | None = None
 		self.timer_task_active = False
 		self.is_muted = False
-		self.sound_player = SoundPlayer()
 
 		self.task_list = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
 		self.summary = ft.Text(color=ft.Colors.BLUE_GREY_300)
@@ -95,7 +64,7 @@ class PlannerView:
 		)
 		self.title_input = ft.TextField(
 			label="새 할 일",
-			hint_text="예: 발표 자료 정리",
+			hint_text="예: 예시로 뭘 들지 생각하기",
 			on_submit=self.add_task,
 			expand=True,
 		)
@@ -146,9 +115,9 @@ class PlannerView:
 				ft.Column(
 					[
 						ft.Text("POPLA", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_200),
-						ft.Text("오늘의 집중 데스크", size=30, weight=ft.FontWeight.BOLD),
+						ft.Text("이것은제목이다", size=30, weight=ft.FontWeight.BOLD),
 						ft.Text(
-							"할 일을 고르고, 한 번에 하나씩 끝내세요.",
+							"타이머 키고 딴짓하지 말자.",
 							color=ft.Colors.BLUE_GREY_300,
 						),
 					],
@@ -218,7 +187,7 @@ class PlannerView:
 							),
 							ft.IconButton(
 								icon=ft.Icons.SKIP_NEXT,
-								tooltip="다음 단계",
+								tooltip="단계 스킵",
 								on_click=self.skip_phase,
 							),
 							self.mute_button,
@@ -343,32 +312,22 @@ class PlannerView:
 	def skip_phase(self, _: ft.ControlEvent | None = None) -> None:
 		self.timer.skip()
 		if not self.is_muted:
-			self.sound_player.play()
+			play_ring()
 		self.refresh_timer()
 		self.page.update()
 
 	async def timer_loop(self) -> None:
-		last_tick = time.monotonic()
-		last_displayed_second = int(self.timer.state.remaining_seconds)
 		try:
 			while self.timer.is_running:
-				await asyncio.sleep(0.1)
+				await asyncio.sleep(1)
 				if not self.timer.is_running:
 					break
-				now = time.monotonic()
-				transitioned = self.timer.tick(now - last_tick)
-				last_tick = now
-				current_displayed_second = int(self.timer.state.remaining_seconds)
-				should_refresh = (
-					transitioned or current_displayed_second != last_displayed_second
-				)
-				if transitioned and not self.is_muted:
-					self.sound_player.play()
-				if should_refresh:
-					self.refresh_timer()
-					self.page.update()
-					last_displayed_second = current_displayed_second
+				transitioned = self.timer.tick()
+				self.refresh_timer()
+				self.page.update()
 				if transitioned:
+					if not self.is_muted:
+						play_ring()
 					self.notify(f"{self.phase_text.value}이 시작되었습니다.")
 		finally:
 			self.timer_task_active = False
