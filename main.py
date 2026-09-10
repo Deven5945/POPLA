@@ -1,7 +1,18 @@
-from core.pomodoro import Timer, long_break, short_break, work_time
+"""Application entry point."""
 
-def main():
-    Timer(work_time, short_break, long_break).start()
+from pathlib import Path
+
+from core.planner import Planner, PlannerStore
+from core.ui import run_app
+
+
+DEFAULT_PLAN_PATH = Path(__file__).parent / "saves" / "plan.json"
+
+
+def main() -> None:
+    """Start the POPLA desktop application."""
+    run_app(Planner(PlannerStore(DEFAULT_PLAN_PATH)))
+
 
 if __name__ == "__main__":
     main()
