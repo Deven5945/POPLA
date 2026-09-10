@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from math import ceil
 import os
 from pathlib import Path
 import shutil
@@ -21,6 +22,12 @@ from core.pomodoro import Phase, PomodoroTimer, format_seconds
 
 
 SOUND_PATH = Path(__file__).resolve().parent.parent / "sound" / "ring.mp3"
+TIMER_POLL_INTERVAL = 0.25
+PHASE_NAMES = {
+	Phase.WORK: "집중 시간",
+	Phase.SHORT_BREAK: "짧은 휴식",
+	Phase.LONG_BREAK: "긴 휴식",
+}
 
 
 def play_ring_native(path: Path = SOUND_PATH) -> bool:
@@ -82,6 +89,7 @@ class PlannerView:
 		self.timer = PomodoroTimer()
 		self.selected_task_id: int | None = None
 		self.timer_task_active = False
+		self._timer_last_tick: float | None = None
 		self.is_muted = False
 		self.sound_player = SoundPlayer()
 
@@ -245,12 +253,7 @@ class PlannerView:
 		self.task_list.controls = [self.task_row(task) for task in tasks]
 
 	def refresh_timer(self) -> None:
-		phase_names = {
-			Phase.WORK: "집중 시간",
-			Phase.SHORT_BREAK: "짧은 휴식",
-			Phase.LONG_BREAK: "긴 휴식",
-		}
-		self.phase_text.value = phase_names[self.timer.phase]
+		self.phase_text.value = PHASE_NAMES[self.timer.phase]
 		self.timer_text.value = format_seconds(self.timer.state.remaining_seconds)
 		self.progress.value = self.timer.state.remaining_seconds / self.timer.total_seconds
 		self.cycle_text.value = f"완료한 집중 세션 {self.timer.state.cycle}회"
@@ -329,6 +332,8 @@ class PlannerView:
 			self.timer.pause()
 		else:
 			self.timer.start()
+			# Reset the reference point on every resume so paused time is not counted.
+			self._timer_last_tick = time.monotonic()
 			if not self.timer_task_active:
 				self.timer_task_active = True
 				self.page.run_task(self.timer_loop)
@@ -348,17 +353,18 @@ class PlannerView:
 		self.page.update()
 
 	async def timer_loop(self) -> None:
-		last_tick = time.monotonic()
-		last_displayed_second = int(self.timer.state.remaining_seconds)
+		self._timer_last_tick = self._timer_last_tick or time.monotonic()
+		last_displayed_second = ceil(self.timer.state.remaining_seconds)
 		try:
 			while self.timer.is_running:
-				await asyncio.sleep(0.1)
+				await asyncio.sleep(TIMER_POLL_INTERVAL)
 				if not self.timer.is_running:
 					break
 				now = time.monotonic()
+				last_tick = self._timer_last_tick or now
 				transitioned = self.timer.tick(now - last_tick)
-				last_tick = now
-				current_displayed_second = int(self.timer.state.remaining_seconds)
+				self._timer_last_tick = now
+				current_displayed_second = ceil(self.timer.state.remaining_seconds)
 				should_refresh = (
 					transitioned or current_displayed_second != last_displayed_second
 				)
@@ -366,17 +372,18 @@ class PlannerView:
 					self.sound_player.play()
 				if should_refresh:
 					self.refresh_timer()
+					if transitioned:
+						self.notify(f"{PHASE_NAMES[self.timer.phase]}이 시작되었습니다.", update=False)
 					self.page.update()
 					last_displayed_second = current_displayed_second
-				if transitioned:
-					self.notify(f"{self.phase_text.value}이 시작되었습니다.")
 		finally:
 			self.timer_task_active = False
 
-	def notify(self, message: str) -> None:
+	def notify(self, message: str, *, update: bool = True) -> None:
 		self.page.snack_bar = ft.SnackBar(ft.Text(message))
 		self.page.snack_bar.open = True
-		self.page.update()
+		if update:
+			self.page.update()
 
 	def toggle_mute(self, _: ft.ControlEvent | None = None) -> None:
 		self.is_muted = not self.is_muted

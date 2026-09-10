@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import math
 
 
 WORK_MINUTES = 25
 SHORT_BREAK_MINUTES = 5
 LONG_BREAK_MINUTES = 15
+
 
 class Phase(str, Enum):
     WORK = "work"
@@ -20,7 +22,7 @@ class Phase(str, Enum):
 class PomodoroState:
     phase: Phase
     cycle: int
-    remaining_seconds: int
+    remaining_seconds: float
     running: bool = False
 
 
@@ -76,7 +78,7 @@ class PomodoroTimer:
 
     def tick(self, seconds: float = 1.0) -> bool:
         """Advance time and return whether a phase boundary was crossed."""
-        if seconds < 0:
+        if not math.isfinite(seconds) or seconds < 0:
             raise ValueError("경과 시간은 음수가 될 수 없습니다.")
         if not self.is_running or seconds == 0:
             return False
@@ -107,5 +109,7 @@ class PomodoroTimer:
 
 
 def format_seconds(seconds: float) -> str:
-    minutes, remaining_seconds = divmod(max(0, seconds), 60)
+    """Format a fractional duration without displaying a second too early."""
+    total_seconds = max(0, math.ceil(seconds))
+    minutes, remaining_seconds = divmod(total_seconds, 60)
     return f"{minutes:02d}:{remaining_seconds:02d}"

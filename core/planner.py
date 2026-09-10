@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -20,7 +20,12 @@ class Task:
 	created_at: str = ""
 
 	def to_dict(self) -> dict[str, Any]:
-		return asdict(self)
+		return {
+			"id": self.id,
+			"title": self.title,
+			"completed": self.completed,
+			"created_at": self.created_at,
+		}
 
 
 class PlannerStore:
@@ -30,11 +35,15 @@ class PlannerStore:
 		self.path = Path(path)
 
 	def load(self) -> list[Task]:
-		if not self.path.exists() or not self.path.read_text(encoding="utf-8").strip():
+		try:
+			with self.path.open("r", encoding="utf-8") as file:
+				content = file.read()
+		except FileNotFoundError:
+			return []
+		if not content.strip():
 			return []
 
-		with self.path.open("r", encoding="utf-8") as file:
-			document = json.load(file)
+		document = json.loads(content)
 
 		raw_tasks = document.get("tasks", document) if isinstance(document, dict) else document
 		if not isinstance(raw_tasks, list):
@@ -83,22 +92,32 @@ class Planner:
 
 	def __init__(self, store: PlannerStore | None = None) -> None:
 		self.store = store or PlannerStore()
+		self._tasks: list[Task] | None = None
+		self._next_task_id: int | None = None
+
+	def _load_tasks(self) -> list[Task]:
+		"""Load once per planner instance and keep subsequent UI reads in memory."""
+		if self._tasks is None:
+			self._tasks = self.store.load()
+			self._next_task_id = max((item.id for item in self._tasks), default=0) + 1
+		return self._tasks
 
 	def list_tasks(self) -> list[Task]:
-		return self.store.load()
+		return list(self._load_tasks())
 
 	def add_task(self, title: str) -> Task:
 		title = title.strip()
 		if not title:
 			raise ValueError("할 일 내용을 입력해야 합니다.")
 
-		tasks = self.store.load()
+		tasks = self._load_tasks()
 		task = Task(
-			id=max((item.id for item in tasks), default=0) + 1,
+			id=self._next_task_id or 1,
 			title=title,
 			created_at=datetime.now(timezone.utc).isoformat(),
 		)
 		tasks.append(task)
+		self._next_task_id = task.id + 1
 		self.store.save(tasks)
 		return task
 
@@ -106,14 +125,16 @@ class Planner:
 		return self.set_completed(task_id, True)
 
 	def set_completed(self, task_id: int, completed: bool) -> Task:
-		tasks = self.store.load()
+		tasks = self._load_tasks()
 		task = self._find(tasks, task_id)
+		if task.completed == completed:
+			return task
 		task.completed = completed
 		self.store.save(tasks)
 		return task
 
 	def remove_task(self, task_id: int) -> Task:
-		tasks = self.store.load()
+		tasks = self._load_tasks()
 		task = self._find(tasks, task_id)
 		tasks.remove(task)
 		self.store.save(tasks)
