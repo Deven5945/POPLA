@@ -20,4 +20,9 @@ flet build macos
 flet build windows
 flet build linux
 ```
-테스트는 안해봐서 모르니 문제 있으면 알려주시라요.
+
+## 테스트
+
+```bash
+python3 -m unittest discover -s tests -v
+```

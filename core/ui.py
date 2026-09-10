@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 
 import flet as ft
 
@@ -52,6 +54,7 @@ class PlannerView:
 		self.timer = PomodoroTimer()
 		self.selected_task_id: int | None = None
 		self.timer_task_active = False
+		self.last_timer_tick = 0.0
 		self.is_muted = False
 
 		self.task_list = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
@@ -298,6 +301,7 @@ class PlannerView:
 			self.timer.pause()
 		else:
 			self.timer.start()
+			self.last_timer_tick = time.monotonic()
 			if not self.timer_task_active:
 				self.timer_task_active = True
 				self.page.run_task(self.timer_loop)
@@ -317,14 +321,28 @@ class PlannerView:
 		self.page.update()
 
 	async def timer_loop(self) -> None:
+		last_display_seconds: int | None = None
+		last_display_phase: Phase | None = None
 		try:
 			while self.timer.is_running:
-				await asyncio.sleep(1)
+				await asyncio.sleep(0.25)
 				if not self.timer.is_running:
 					break
-				transitioned = self.timer.tick()
-				self.refresh_timer()
-				self.page.update()
+				now = time.monotonic()
+				elapsed = max(0.0, now - self.last_timer_tick)
+				self.last_timer_tick = now
+				transitioned = self.timer.tick(elapsed)
+				display_seconds = math.ceil(self.timer.state.remaining_seconds)
+				should_update = (
+					display_seconds != last_display_seconds
+					or self.timer.phase != last_display_phase
+					or transitioned
+				)
+				if should_update:
+					self.refresh_timer()
+					self.page.update()
+					last_display_seconds = display_seconds
+					last_display_phase = self.timer.phase
 				if transitioned:
 					if not self.is_muted:
 						play_ring()

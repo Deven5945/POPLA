@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import tempfile
 from typing import Any
@@ -30,17 +31,27 @@ class PlannerStore:
 		self.path = Path(path)
 
 	def load(self) -> list[Task]:
-		if not self.path.exists() or not self.path.read_text(encoding="utf-8").strip():
+		if not self.path.exists():
 			return []
 
-		with self.path.open("r", encoding="utf-8") as file:
-			document = json.load(file)
+		try:
+			with self.path.open("r", encoding="utf-8") as file:
+				content = file.read()
+			if not content.strip():
+				return []
+			document = json.loads(content)
+		except json.JSONDecodeError as error:
+			raise ValueError(f"plan.json의 JSON 형식이 올바르지 않습니다: {error.msg}") from error
 
-		raw_tasks = document.get("tasks", document) if isinstance(document, dict) else document
+		raw_tasks = document.get("tasks") if isinstance(document, dict) else document
 		if not isinstance(raw_tasks, list):
 			raise ValueError("plan.json은 tasks 배열을 포함해야 합니다.")
 
-		return [self._task_from_dict(item) for item in raw_tasks]
+		tasks = [self._task_from_dict(item) for item in raw_tasks]
+		ids = [task.id for task in tasks]
+		if len(ids) != len(set(ids)):
+			raise ValueError("plan.json에는 중복된 task id가 있습니다.")
+		return tasks
 
 	def save(self, tasks: list[Task]) -> None:
 		self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -57,6 +68,8 @@ class PlannerStore:
 			) as file:
 				json.dump(document, file, ensure_ascii=False, indent=2)
 				file.write("\n")
+				file.flush()
+				os.fsync(file.fileno())
 				temporary_path = Path(file.name)
 			temporary_path.replace(self.path)
 		finally:
@@ -65,16 +78,27 @@ class PlannerStore:
 
 	@staticmethod
 	def _task_from_dict(item: Any) -> Task:
-		if not isinstance(item, dict) or not isinstance(item.get("id"), int):
+		if (
+			not isinstance(item, dict)
+			or not isinstance(item.get("id"), int)
+			or isinstance(item.get("id"), bool)
+			or item["id"] <= 0
+		):
 			raise ValueError("각 task에는 정수 id가 필요합니다.")
 		title = item.get("title")
 		if not isinstance(title, str) or not title.strip():
 			raise ValueError("각 task에는 비어 있지 않은 title이 필요합니다.")
+		completed = item.get("completed", False)
+		if not isinstance(completed, bool):
+			raise ValueError("task의 completed 값은 boolean이어야 합니다.")
+		created_at = item.get("created_at", "")
+		if not isinstance(created_at, str):
+			raise ValueError("task의 created_at 값은 문자열이어야 합니다.")
 		return Task(
 			id=item["id"],
-			title=title,
-			completed=bool(item.get("completed", False)),
-			created_at=str(item.get("created_at", "")),
+			title=title.strip(),
+			completed=completed,
+			created_at=created_at,
 		)
 
 

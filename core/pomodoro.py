@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import math
+from numbers import Real
 
 
 WORK_MINUTES = 25
@@ -20,7 +22,7 @@ class Phase(str, Enum):
 class PomodoroState:
     phase: Phase
     cycle: int
-    remaining_seconds: int
+    remaining_seconds: float
     running: bool = False
 
 
@@ -74,8 +76,11 @@ class PomodoroTimer:
     def skip(self) -> None:
         self._advance_phase()
 
-    def tick(self, seconds: int = 1) -> bool:
+    def tick(self, seconds: float = 1.0) -> bool:
         """Advance time and return whether a phase boundary was crossed."""
+        if not isinstance(seconds, Real) or isinstance(seconds, bool) or not math.isfinite(seconds):
+            raise ValueError("경과 시간은 유한한 숫자여야 합니다.")
+        seconds = float(seconds)
         if seconds < 0:
             raise ValueError("경과 시간은 음수가 될 수 없습니다.")
         if not self.is_running or seconds == 0:
@@ -106,6 +111,7 @@ class PomodoroTimer:
         )
 
 
-def format_seconds(seconds: int) -> str:
-    minutes, remaining_seconds = divmod(max(0, seconds), 60)
+def format_seconds(seconds: float) -> str:
+    display_seconds = math.ceil(max(0.0, seconds))
+    minutes, remaining_seconds = divmod(display_seconds, 60)
     return f"{minutes:02d}:{remaining_seconds:02d}"
