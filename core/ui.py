@@ -103,7 +103,7 @@ class PlannerView:
 		)
 		self.title_input = ft.TextField(
 			label="새 할 일",
-			hint_text="예: 발표 자료 정리",
+			hint_text="예: 저녁 뭐먹을지 생각하기",
 			on_submit=self.add_task,
 			expand=True,
 		)
@@ -154,9 +154,9 @@ class PlannerView:
 				ft.Column(
 					[
 						ft.Text("POPLA", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_200),
-						ft.Text("오늘의 집중 데스크", size=30, weight=ft.FontWeight.BOLD),
+						ft.Text("제목지으려다안지음", size=30, weight=ft.FontWeight.BOLD),
 						ft.Text(
-							"할 일을 고르고, 한 번에 하나씩 끝내세요.",
+							"25분 쉬고 5분 집중하는거 아님",
 							color=ft.Colors.BLUE_GREY_300,
 						),
 					],
@@ -226,7 +226,7 @@ class PlannerView:
 							),
 							ft.IconButton(
 								icon=ft.Icons.SKIP_NEXT,
-								tooltip="다음 단계",
+								tooltip="단계 스킵",
 								on_click=self.skip_phase,
 							),
 							self.mute_button,
@@ -256,7 +256,7 @@ class PlannerView:
 		self.phase_text.value = PHASE_NAMES[self.timer.phase]
 		self.timer_text.value = format_seconds(self.timer.state.remaining_seconds)
 		self.progress.value = self.timer.state.remaining_seconds / self.timer.total_seconds
-		self.cycle_text.value = f"완료한 집중 세션 {self.timer.state.cycle}회"
+		self.cycle_text.value = f"완료한 세션 {self.timer.state.cycle}회"
 		self.start_button.text = "일시정지" if self.timer.is_running else "시작"
 		self.start_button.icon = ft.Icons.PAUSE if self.timer.is_running else ft.Icons.PLAY_ARROW
 
@@ -279,7 +279,7 @@ class PlannerView:
 					),
 					ft.IconButton(
 						icon=ft.Icons.DELETE_OUTLINE,
-						tooltip="할 일 삭제",
+						tooltip="삭제",
 						data=task.id,
 						on_click=self.delete_task,
 					),
@@ -388,7 +388,7 @@ class PlannerView:
 	def toggle_mute(self, _: ft.ControlEvent | None = None) -> None:
 		self.is_muted = not self.is_muted
 		self.mute_button.icon = ft.Icons.VOLUME_OFF if self.is_muted else ft.Icons.VOLUME_UP
-		self.mute_button.tooltip = "알림음 켜기" if self.is_muted else "알림음 음소거"
+		self.mute_button.tooltip = "알림음 활성화" if self.is_muted else "알림음 음소거"
 		self.page.update()
 
 
