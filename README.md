@@ -20,5 +20,4 @@ flet build macos
 flet build windows
 flet build linux
 ```
-
-각 명령은 해당 플랫폼용 설치 번들을 `build/` 아래에 생성합니다.
+테스트는 안해봐서 모르니 문제 있으면 알려주시라요.
