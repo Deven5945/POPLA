@@ -24,9 +24,3 @@ flet build linux
 ```
 
 테스트는 안해봐서 될지 모름
-
-## 테스트
-
-```bash
-python3 -m unittest discover -s tests -v
-```
