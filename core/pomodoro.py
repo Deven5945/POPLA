@@ -36,7 +36,7 @@ class PomodoroTimer:
         long_break_minutes: int = LONG_BREAK_MINUTES,
     ) -> None:
         if min(work_minutes, short_break_minutes, long_break_minutes) <= 0:
-            raise ValueError("포모도로 시간은 0보다 커야 합니다.")
+            raise ValueError("시간 0보다 커야함")
         self.durations = {
             Phase.WORK: work_minutes * 60,
             Phase.SHORT_BREAK: short_break_minutes * 60,
@@ -79,10 +79,10 @@ class PomodoroTimer:
     def tick(self, seconds: float = 1.0) -> bool:
         """Advance time and return whether a phase boundary was crossed."""
         if not isinstance(seconds, Real) or isinstance(seconds, bool) or not math.isfinite(seconds):
-            raise ValueError("경과 시간은 유한한 숫자여야 합니다.")
+            raise ValueError("시간 숫자 아님")
         seconds = float(seconds)
         if seconds < 0:
-            raise ValueError("경과 시간은 음수가 될 수 없습니다.")
+            raise ValueError("시간 음수")
         if not self.is_running or seconds == 0:
             return False
 
