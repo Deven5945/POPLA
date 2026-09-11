@@ -1,6 +1,7 @@
 # POPLA Focus Desk
 
 플래너와 포모도로를 결합한 Flet 데스크톱 앱입니다
+
 작업 목록은 `saves/plan.json`에 저장됩니다
 
 ## 실행
