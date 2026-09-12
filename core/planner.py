@@ -41,16 +41,16 @@ class PlannerStore:
 				return []
 			document = json.loads(content)
 		except json.JSONDecodeError as error:
-			raise ValueError(f"plan.json의 JSON 형식이 올바르지 않습니다: {error.msg}") from error
+			raise ValueError({error.msg}) from error
 
 		raw_tasks = document.get("tasks") if isinstance(document, dict) else document
 		if not isinstance(raw_tasks, list):
-			raise ValueError("plan.json은 tasks 배열을 포함해야 합니다.")
+			raise ValueError("task 배열 필요")
 
 		tasks = [self._task_from_dict(item) for item in raw_tasks]
 		ids = [task.id for task in tasks]
 		if len(ids) != len(set(ids)):
-			raise ValueError("plan.json에는 중복된 task id가 있습니다.")
+			raise ValueError("중복 task id")
 		return tasks
 
 	def save(self, tasks: list[Task]) -> None:
@@ -84,16 +84,16 @@ class PlannerStore:
 			or isinstance(item.get("id"), bool)
 			or item["id"] <= 0
 		):
-			raise ValueError("각 task에는 정수 id가 필요합니다.")
+			raise ValueError("정수 id 필요")
 		title = item.get("title")
 		if not isinstance(title, str) or not title.strip():
-			raise ValueError("각 task에는 비어 있지 않은 title이 필요합니다.")
+			raise ValueError("title 문자열 없음")
 		completed = item.get("completed", False)
 		if not isinstance(completed, bool):
-			raise ValueError("task의 completed 값은 boolean이어야 합니다.")
+			raise ValueError("bool 형식 아님")
 		created_at = item.get("created_at", "")
 		if not isinstance(created_at, str):
-			raise ValueError("task의 created_at 값은 문자열이어야 합니다.")
+			raise ValueError("created_at 문자열 아님")
 		return Task(
 			id=item["id"],
 			title=title.strip(),
@@ -114,7 +114,7 @@ class Planner:
 	def add_task(self, title: str) -> Task:
 		title = title.strip()
 		if not title:
-			raise ValueError("할 일 내용을 입력해야 합니다.")
+			raise ValueError("입력이란걸하셈")
 
 		tasks = self.store.load()
 		task = Task(
@@ -148,4 +148,4 @@ class Planner:
 		for task in tasks:
 			if task.id == task_id:
 				return task
-		raise ValueError(f"task {task_id}를 찾을 수 없습니다.")
+		raise ValueError(f"{task_id} 없음")
