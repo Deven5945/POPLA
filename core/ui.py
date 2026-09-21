@@ -118,7 +118,7 @@ class PlannerView:
 				ft.Column(
 					[
 						ft.Text("POPLA", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO_200),
-						ft.Text("이것은제목이다", size=30, weight=ft.FontWeight.BOLD),
+						ft.Text("제목(제목임)", size=30, weight=ft.FontWeight.BOLD),
 						ft.Text(
 							"타이머 키고 딴짓하지 말자.",
 							color=ft.Colors.BLUE_GREY_300,
@@ -225,7 +225,7 @@ class PlannerView:
 		self.phase_text.value = phase_names[self.timer.phase]
 		self.timer_text.value = format_seconds(self.timer.state.remaining_seconds)
 		self.progress.value = self.timer.state.remaining_seconds / self.timer.total_seconds
-		self.cycle_text.value = f"완료한 집중 세션 {self.timer.state.cycle}회"
+		self.cycle_text.value = f"완료한 단계 {self.timer.state.cycle}회"
 		self.start_button.text = "일시정지" if self.timer.is_running else "시작"
 		self.start_button.icon = ft.Icons.PAUSE if self.timer.is_running else ft.Icons.PLAY_ARROW
 
@@ -242,13 +242,13 @@ class PlannerView:
 					ft.Text(task.title, expand=True, selectable=True, style=text_style),
 					ft.IconButton(
 						icon=ft.Icons.TIMER_OUTLINED,
-						tooltip="이 작업에 집중",
+						tooltip="집중",
 						data=task.id,
 						on_click=self.select_task,
 					),
 					ft.IconButton(
 						icon=ft.Icons.DELETE_OUTLINE,
-						tooltip="할 일 삭제",
+						tooltip="삭제",
 						data=task.id,
 						on_click=self.delete_task,
 					),

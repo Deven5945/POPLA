@@ -45,12 +45,12 @@ class PlannerStore:
 
 		raw_tasks = document.get("tasks") if isinstance(document, dict) else document
 		if not isinstance(raw_tasks, list):
-			raise ValueError("task 배열 필요")
+			raise ValueError("task 야랄남")
 
 		tasks = [self._task_from_dict(item) for item in raw_tasks]
 		ids = [task.id for task in tasks]
 		if len(ids) != len(set(ids)):
-			raise ValueError("중복 task id")
+			raise ValueError("task id 중복")
 		return tasks
 
 	def save(self, tasks: list[Task]) -> None:

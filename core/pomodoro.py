@@ -36,7 +36,7 @@ class PomodoroTimer:
         long_break_minutes: int = LONG_BREAK_MINUTES,
     ) -> None:
         if min(work_minutes, short_break_minutes, long_break_minutes) <= 0:
-            raise ValueError("시간 0보다 커야함")
+            raise ValueError("시간 0보다 작음")
         self.durations = {
             Phase.WORK: work_minutes * 60,
             Phase.SHORT_BREAK: short_break_minutes * 60,
