@@ -9,6 +9,7 @@ __pycache__/
 .vscode/
 .DS_Store
 tests/
+saves/
 
 # Distribution / packaging
 .Python

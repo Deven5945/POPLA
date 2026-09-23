@@ -1,7 +1,3 @@
-"""Domain and persistence logic for the planner."""
-
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
@@ -13,8 +9,6 @@ from typing import Any
 
 @dataclass
 class Task:
-	"""A planner item kept independent from any user interface."""
-
 	id: int
 	title: str
 	completed: bool = False
@@ -25,8 +19,6 @@ class Task:
 
 
 class PlannerStore:
-	"""Load and save tasks in a small, forward-compatible JSON document."""
-
 	def __init__(self, path: str | Path = "saves/plan.json") -> None:
 		self.path = Path(path)
 
@@ -45,12 +37,12 @@ class PlannerStore:
 
 		raw_tasks = document.get("tasks") if isinstance(document, dict) else document
 		if not isinstance(raw_tasks, list):
-			raise ValueError("task 야랄남")
+			raise ValueError("task 형식요류")
 
 		tasks = [self._task_from_dict(item) for item in raw_tasks]
 		ids = [task.id for task in tasks]
 		if len(ids) != len(set(ids)):
-			raise ValueError("task id 중복")
+			raise ValueError("id 중복")
 		return tasks
 
 	def save(self, tasks: list[Task]) -> None:
@@ -87,13 +79,13 @@ class PlannerStore:
 			raise ValueError("정수 id 필요")
 		title = item.get("title")
 		if not isinstance(title, str) or not title.strip():
-			raise ValueError("title 문자열 없음")
+			raise ValueError("title 형식오류 및 공백")
 		completed = item.get("completed", False)
 		if not isinstance(completed, bool):
-			raise ValueError("bool 형식 아님")
+			raise ValueError("completed 형식오류")
 		created_at = item.get("created_at", "")
 		if not isinstance(created_at, str):
-			raise ValueError("created_at 문자열 아님")
+			raise ValueError("created_at 형식오류")
 		return Task(
 			id=item["id"],
 			title=title.strip(),
@@ -103,8 +95,6 @@ class PlannerStore:
 
 
 class Planner:
-	"""Use-case operations shared by CLI and future graphical interfaces."""
-
 	def __init__(self, store: PlannerStore | None = None) -> None:
 		self.store = store or PlannerStore()
 
@@ -114,7 +104,7 @@ class Planner:
 	def add_task(self, title: str) -> Task:
 		title = title.strip()
 		if not title:
-			raise ValueError("입력이란걸하셈")
+			raise ValueError("title 공백")
 
 		tasks = self.store.load()
 		task = Task(
@@ -148,4 +138,4 @@ class Planner:
 		for task in tasks:
 			if task.id == task_id:
 				return task
-		raise ValueError(f"{task_id} 없음")
+		raise ValueError(f"id {task_id} 없음")

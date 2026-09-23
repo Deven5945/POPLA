@@ -1,7 +1,3 @@
-"""UI-independent Pomodoro state machine."""
-
-from __future__ import annotations
-
 from dataclasses import dataclass
 from enum import Enum
 import math
@@ -27,8 +23,6 @@ class PomodoroState:
 
 
 class PomodoroTimer:
-    """Deterministic timer state that can be driven by any UI event loop."""
-
     def __init__(
         self,
         work_minutes: int = WORK_MINUTES,
@@ -77,12 +71,11 @@ class PomodoroTimer:
         self._advance_phase()
 
     def tick(self, seconds: float = 1.0) -> bool:
-        """Advance time and return whether a phase boundary was crossed."""
         if not isinstance(seconds, Real) or isinstance(seconds, bool) or not math.isfinite(seconds):
-            raise ValueError("시간 숫자 아님")
+            raise ValueError("시간이 숫자가 아님")
         seconds = float(seconds)
         if seconds < 0:
-            raise ValueError("시간 음수")
+            raise ValueError("시간이 음수음")
         if not self.is_running or seconds == 0:
             return False
 
