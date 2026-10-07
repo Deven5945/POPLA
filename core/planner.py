@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-
+# 데이터 클래스
 @dataclass
 class Task:
 	id: int
@@ -17,19 +17,25 @@ class Task:
 	def to_dict(self) -> dict[str, Any]:
 		return asdict(self)
 
-
+# 저장 클래스
 class PlannerStore:
 	def __init__(self, path: str | Path = "saves/plan.json") -> None:
 		self.path = Path(path)
+		self._cache: list[Task] | None = None
 
+	# 로드 및 저장
 	def load(self) -> list[Task]:
+		if self._cache is not None:
+			return list(self._cache)
 		if not self.path.exists():
+			self._cache = []
 			return []
 
 		try:
 			with self.path.open("r", encoding="utf-8") as file:
 				content = file.read()
 			if not content.strip():
+				self._cache = []
 				return []
 			document = json.loads(content)
 		except json.JSONDecodeError as error:
@@ -43,13 +49,16 @@ class PlannerStore:
 		ids = [task.id for task in tasks]
 		if len(ids) != len(set(ids)):
 			raise ValueError("id 중복")
-		return tasks
+		self._cache = tasks
+		return list(tasks)
 
 	def save(self, tasks: list[Task]) -> None:
 		self.path.parent.mkdir(parents=True, exist_ok=True)
+		self._cache = list(tasks)
 		document = {"version": 1, "tasks": [task.to_dict() for task in tasks]}
 		temporary_path: Path | None = None
 
+		# 임시파일 이용해 저장
 		try:
 			with tempfile.NamedTemporaryFile(
 				mode="w",
@@ -68,6 +77,7 @@ class PlannerStore:
 			if temporary_path and temporary_path.exists():
 				temporary_path.unlink()
 
+	# 데이터 검증
 	@staticmethod
 	def _task_from_dict(item: Any) -> Task:
 		if (
@@ -93,11 +103,12 @@ class PlannerStore:
 			created_at=created_at,
 		)
 
-
+# 플래너 클래스
 class Planner:
 	def __init__(self, store: PlannerStore | None = None) -> None:
 		self.store = store or PlannerStore()
 
+	# 리스트 반환, 작업 추가, 완료, 삭제
 	def list_tasks(self) -> list[Task]:
 		return self.store.load()
 
@@ -133,6 +144,7 @@ class Planner:
 		self.store.save(tasks)
 		return task
 
+	# 데이터 검증
 	@staticmethod
 	def _find(tasks: list[Task], task_id: int) -> Task:
 		for task in tasks:

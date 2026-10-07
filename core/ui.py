@@ -17,17 +17,44 @@ from core.pomodoro import Phase, PomodoroTimer, format_seconds
 SOUND_PATH = Path(__file__).resolve().parent.parent / "sound" / "ring.mp3"
 
 
-BACKGROUND = "#F5F8FC"
-SURFACE = "#FFFFFF"
-SURFACE_ALT = "#F8FAFD"
-BORDER = "#E4EAF2"
-TEXT = "#172033"
-MUTED = "#728096"
-PRIMARY = "#2563EB"
-PRIMARY_DARK = "#1D4ED8"
-PRIMARY_SOFT = "#EAF2FF"
-SUCCESS = "#17835B"
+BACKGROUND = "#080B14"
+SURFACE = "#101624"
+SURFACE_ALT = "#171F31"
+SURFACE_RAISED = "#1D2840"
+BORDER = "#26334D"
+TEXT = "#F4F7FC"
+MUTED = "#8D9AB2"
+PRIMARY = "#8B6CFF"
+PRIMARY_DARK = "#6F50E8"
+PRIMARY_SOFT = "#241C4B"
+MINT = "#35D6A1"
+MINT_SOFT = "#123C37"
+SKY = "#50B8FF"
+SKY_SOFT = "#12324B"
+DANGER = "#FF6F86"
 FONT_FAMILY = "Noto Sans KR"
+
+
+PHASE_META = {
+	Phase.WORK: {
+		"label": "집중",
+		"icon": ft.Icons.BOLT,
+		"color": PRIMARY,
+		"soft": PRIMARY_SOFT,
+	},
+	Phase.SHORT_BREAK: {
+		"label": "짧은 휴식",
+		"icon": ft.Icons.COFFEE_OUTLINED,
+		"color": MINT,
+		"soft": MINT_SOFT,
+	},
+	Phase.LONG_BREAK: {
+		"label": "긴 휴식",
+		"icon": ft.Icons.NIGHTLIGHT_OUTLINED,
+		"color": SKY,
+		"soft": SKY_SOFT,
+	},
+}
 
 
 def play_ring(path: Path = SOUND_PATH) -> bool:
@@ -65,9 +92,10 @@ class PlannerView:
 		self.last_timer_tick = 0.0
 		self.is_muted = False
 
-		self.task_list = ft.Column(spacing=10)
+		self.task_list = ft.Column(spacing=8)
+		self.task_count = ft.Text("0", size=12, color=MUTED, weight=ft.FontWeight.BOLD)
 		self.selected_task = ft.Text(
-			"선택된 작업 없음",
+			"선택 없음",
 			color=MUTED,
 			size=13,
 			max_lines=1,
@@ -75,11 +103,13 @@ class PlannerView:
 			expand=True,
 		)
 		self.title_input = ft.TextField(
-			label="새 작업",
-			hint_text="할 일 입력하기",
+			hint_text="새 작업",
+			prefix_icon=ft.Icons.ADD_TASK_OUTLINED,
 			on_submit=self.add_task,
 			expand=True,
 			text_size=14,
+			color=TEXT,
+			cursor_color=PRIMARY,
 			border=ft.InputBorder.OUTLINE,
 			border_color=BORDER,
 			focused_border_color=PRIMARY,
@@ -88,125 +118,209 @@ class PlannerView:
 			content_padding=ft.Padding(16, 14, 16, 14),
 		)
 		self.filter_buttons = {
-			"all": ft.TextButton("전체", on_click=lambda _: self.set_filter("all")),
-			"active": ft.TextButton("진행 중", on_click=lambda _: self.set_filter("active")),
-			"completed": ft.TextButton("완료", on_click=lambda _: self.set_filter("completed")),
+			"all": ft.IconButton(
+				icon=ft.Icons.LIST_ALT_OUTLINED,
+				tooltip="전체 작업",
+				on_click=lambda _: self.set_filter("all"),
+			),
+			"active": ft.IconButton(
+				icon=ft.Icons.RADIO_BUTTON_CHECKED,
+				tooltip="진행 중",
+				on_click=lambda _: self.set_filter("active"),
+			),
+			"completed": ft.IconButton(
+				icon=ft.Icons.TASK_ALT,
+				tooltip="완료",
+				on_click=lambda _: self.set_filter("completed"),
+			),
 		}
-		self.phase_text = ft.Text(size=13, weight=ft.FontWeight.BOLD, color=PRIMARY, no_wrap=True)
+		self.phase_icon = ft.Icon(ft.Icons.TIMER_OUTLINED, size=16)
+		self.phase_text = ft.Text(size=12, weight=ft.FontWeight.BOLD, no_wrap=True)
 		self.phase_badge = ft.Container(
-			content=self.phase_text,
-			padding=ft.Padding(12, 7, 12, 7),
+			content=ft.Row([self.phase_icon, self.phase_text], spacing=5),
+			padding=ft.Padding(10, 6, 10, 6),
 			bgcolor=PRIMARY_SOFT,
 			border_radius=20,
 		)
 		self.timer_text = ft.Text(
-			size=64,
+			size=112,
 			weight=ft.FontWeight.BOLD,
 			color=TEXT,
 			max_lines=1,
 			no_wrap=True,
+			text_align=ft.TextAlign.CENTER,
 		)
-		self.progress = ft.ProgressBar(value=1, bar_height=8, color=PRIMARY, bgcolor="#DCE7F8", expand=True)
+		self.progress = ft.ProgressBar(value=1, bar_height=7, bgcolor=BORDER, expand=True)
 		self.focus_target = ft.Text(
-			"선택된 작업 없음",
+			"선택 없음",
 			color=TEXT,
 			size=14,
 			weight=ft.FontWeight.BOLD,
 			max_lines=1,
 			overflow=ft.TextOverflow.ELLIPSIS,
 		)
-		self.start_button = ft.FilledButton(
-			"시작",
+		self.start_button = ft.IconButton(
 			icon=ft.Icons.PLAY_ARROW,
+			tooltip="타이머 시작",
+			icon_size=28,
 			on_click=self.toggle_timer,
-			style=ft.ButtonStyle(
-				bgcolor=PRIMARY,
-				color=ft.Colors.WHITE,
-				padding=ft.Padding(22, 14, 22, 14),
-				shape=ft.RoundedRectangleBorder(radius=10),
-			),
 		)
 		self.mute_button = ft.IconButton(
 			icon=ft.Icons.VOLUME_UP,
 			tooltip="알림음 음소거",
 			on_click=self.toggle_mute,
-			style=ft.ButtonStyle(color=MUTED),
 		)
 
 	def build(self) -> ft.Control:
 		return ft.SafeArea(
 			ft.Container(
-				content=ft.ListView(
-					controls=[
+				content=ft.Column(
+					[
 						self.build_header(),
 						ft.ResponsiveRow(
 							[
-								ft.Column([self.build_planner_panel()], col={"sm": 12, "lg": 8}),
-								ft.Column([self.build_pomodoro_panel()], col={"sm": 12, "lg": 4}),
+								ft.Column([self.build_timer_panel()], col={"sm": 12, "lg": 7}),
+								ft.Column([self.build_planner_panel()], col={"sm": 12, "lg": 5}),
 							],
-							spacing=16,
-							run_spacing=16,
+							spacing=18,
+							run_spacing=18,
 						),
 					],
 					spacing=18,
-					scroll=ft.ScrollMode.AUTO,
-					padding=ft.Padding(24, 24, 24, 24),
 					expand=True,
 				),
 				bgcolor=BACKGROUND,
+				padding=ft.Padding(22, 20, 22, 22),
 				expand=True,
 			),
 		)
 
 	def build_header(self) -> ft.Control:
-		return ft.ResponsiveRow(
+		return ft.Row(
 			[
-				ft.Column(
+				ft.Row(
 					[
-						ft.Row(
-							[
-								ft.Container(
-									content=ft.Icon(ft.Icons.TASK_ALT, color=ft.Colors.WHITE, size=23),
-									width=46,
-									height=46,
-									bgcolor=PRIMARY,
-									border_radius=14,
-									alignment=ft.Alignment.CENTER,
-								),
-								ft.Column(
-									[
-										ft.Text("POPLA", size=13, weight=ft.FontWeight.BOLD, color=PRIMARY),
-										ft.Text("Focus Desk", size=22, weight=ft.FontWeight.BOLD, color=TEXT),
-									],
-									spacing=0,
-								),
-							],
-							spacing=12,
+						ft.Container(
+							content=ft.Icon(ft.Icons.TIMER_OUTLINED, color=BACKGROUND, size=21),
+							width=42,
+							height=42,
+							bgcolor=PRIMARY,
+							border_radius=13,
+							alignment=ft.Alignment.CENTER,
 						),
-						ft.Text("할 건 제대로 해야지", color=MUTED, size=14),
+						ft.Text("POPLA", size=19, weight=ft.FontWeight.BOLD, color=TEXT),
 					],
-					col={"sm": 12, "md": 8},
+					spacing=10,
 				),
-				ft.Column(
+				ft.Row(
 					[
-						ft.Text(datetime.now().strftime("%Y년 %m월 %d일"), size=14, color=TEXT, weight=ft.FontWeight.BOLD),
-						ft.Text("여기다뭐쓸지추천받음", size=12, color=MUTED),
+					ft.Icon(ft.Icons.CALENDAR_TODAY_OUTLINED, size=16, color=MUTED),
+					ft.Text(datetime.now().strftime("%m.%d"), size=13, color=MUTED, weight=ft.FontWeight.BOLD),
 					],
-					col={"sm": 12, "md": 4},
-					alignment=ft.MainAxisAlignment.CENTER,
+					spacing=6,
 				),
 			],
-			vertical_alignment=ft.CrossAxisAlignment.CENTER,
+			alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
 		)
 
 	@staticmethod
-	def card(content: ft.Control, padding: int = 24, bgcolor: str = SURFACE) -> ft.Control:
+	def card(content: ft.Control, padding: int = 20, bgcolor: str = SURFACE) -> ft.Control:
 		return ft.Container(
 			content=content,
 			padding=ft.Padding(padding, padding, padding, padding),
 			bgcolor=bgcolor,
 			border=ft.Border.all(1, BORDER),
-			border_radius=18,
+			border_radius=24,
+		)
+
+	@staticmethod
+	def icon_button_style(color: str = MUTED, bgcolor: str = "transparent", radius: int = 11) -> ft.ButtonStyle:
+		return ft.ButtonStyle(
+			color=color,
+			bgcolor=bgcolor,
+			padding=ft.Padding(10, 10, 10, 10),
+			shape=ft.RoundedRectangleBorder(radius=radius),
+		)
+
+	def build_timer_panel(self) -> ft.Control:
+		return self.card(
+			ft.Column(
+				[
+					ft.Row(
+						[
+							ft.Row(
+								[
+									ft.Icon(ft.Icons.TIMER_OUTLINED, color=TEXT, size=21),
+									ft.Text("타이머", size=17, weight=ft.FontWeight.BOLD, color=TEXT),
+								],
+								spacing=8,
+							),
+							self.phase_badge,
+						],
+						alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+					),
+					ft.Container(
+						content=ft.Column(
+							[
+								ft.Row(
+									[self.timer_text],
+									alignment=ft.MainAxisAlignment.CENTER,
+									expand=True,
+								),
+								ft.Row(
+									[ft.Container(content=self.progress, width=320)],
+									alignment=ft.MainAxisAlignment.CENTER,
+									expand=True,
+								),
+							],
+							spacing=18,
+							horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+						),
+						padding=ft.Padding(0, 58, 0, 48),
+						alignment=ft.Alignment.CENTER,
+						expand=True,
+					),
+					ft.Container(
+						content=ft.Row(
+							[
+								ft.Container(
+									content=ft.Icon(ft.Icons.TASK_ALT, color=PRIMARY, size=18),
+									width=34,
+									height=34,
+									bgcolor=PRIMARY_SOFT,
+									border_radius=10,
+									alignment=ft.Alignment.CENTER,
+								),
+								self.focus_target,
+							],
+							spacing=10,
+						),
+						padding=ft.Padding(12, 10, 12, 10),
+						bgcolor=SURFACE_ALT,
+						border_radius=13,
+					),
+					ft.Row(
+						[
+							self.start_button,
+							ft.IconButton(
+								icon=ft.Icons.REFRESH,
+								tooltip="타이머 초기화",
+								on_click=self.reset_timer,
+							),
+							ft.IconButton(
+								icon=ft.Icons.SKIP_NEXT,
+								tooltip="단계 스킵",
+								on_click=self.skip_phase,
+							),
+							self.mute_button,
+						],
+						alignment=ft.MainAxisAlignment.CENTER,
+						spacing=8,
+					),
+				],
+				spacing=18,
+			),
+			bgcolor="#11192B",
 		)
 
 	def build_planner_panel(self) -> ft.Control:
@@ -215,39 +329,36 @@ class PlannerView:
 				[
 					ft.Row(
 						[
-							ft.Column(
+							ft.Row(
 								[
-									ft.Text("플래너", size=20, weight=ft.FontWeight.BOLD, color=TEXT),
-									ft.Text("할 일 목록", size=13, color=MUTED),
+									ft.Icon(ft.Icons.CHECKLIST_OUTLINED, color=MINT, size=20),
+									ft.Text("작업", size=17, weight=ft.FontWeight.BOLD, color=TEXT),
+									self.task_count,
 								],
-								spacing=3,
-								expand=True,
+								spacing=8,
+							),
+							ft.Container(
+								content=ft.Row(list(self.filter_buttons.values()), spacing=0),
+								padding=ft.Padding(2, 2, 2, 2),
+								bgcolor=SURFACE_ALT,
+								border_radius=11,
 							),
 						],
 						alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+						vertical_alignment=ft.CrossAxisAlignment.CENTER,
 					),
 					ft.Row(
 						[
 							self.title_input,
-							ft.FilledButton(
-								"추가",
+							ft.IconButton(
 								icon=ft.Icons.ADD,
+								icon_size=22,
+								tooltip="작업 추가",
 								on_click=self.add_task,
-								style=ft.ButtonStyle(
-									bgcolor=PRIMARY,
-									color=ft.Colors.WHITE,
-									padding=ft.Padding(18, 15, 18, 15),
-									shape=ft.RoundedRectangleBorder(radius=10),
-								),
+								style=self.icon_button_style(TEXT, PRIMARY, 12),
 							),
 						],
 						vertical_alignment=ft.CrossAxisAlignment.CENTER,
-					),
-					ft.Container(
-						content=ft.Row(list(self.filter_buttons.values()), spacing=2),
-						padding=ft.Padding(4, 2, 4, 2),
-						bgcolor=SURFACE_ALT,
-						border_radius=10,
 					),
 					ft.Container(
 						content=ft.Row(
@@ -257,96 +368,15 @@ class PlannerView:
 							],
 							spacing=8,
 						),
-						padding=ft.Padding(12, 10, 12, 10),
+						padding=ft.Padding(11, 9, 11, 9),
 						bgcolor=PRIMARY_SOFT,
-						border_radius=10,
+						border_radius=11,
 					),
 					self.task_list,
 				],
-				spacing=16,
+				spacing=14,
 			),
-		)
-
-	def build_pomodoro_panel(self) -> ft.Control:
-		return self.card(
-			ft.Column(
-				[
-					ft.Row(
-						[
-							ft.Column(
-								[
-									ft.Text("포모도로", size=20, weight=ft.FontWeight.BOLD, color=TEXT),
-									ft.Text("집중 타이머", size=13, color=MUTED),
-								],
-								spacing=3,
-								expand=True,
-							),
-							self.phase_badge,
-						],
-						alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-					),
-					ft.Container(
-						content=ft.Column(
-							[
-								self.timer_text,
-								self.progress,
-							],
-							spacing=14,
-							horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-						),
-						padding=ft.Padding(0, 38, 0, 26),
-					),
-					ft.Container(
-						content=ft.Row(
-							[
-								ft.Container(
-									content=ft.Icon(ft.Icons.TASK_ALT, color=PRIMARY, size=18),
-									width=34,
-									height=34,
-									bgcolor=SURFACE,
-									border_radius=10,
-									alignment=ft.Alignment.CENTER,
-								),
-								ft.Column(
-									[
-										ft.Text("집중 중:", size=11, color=MUTED),
-										self.focus_target,
-									],
-									spacing=2,
-									expand=True,
-								),
-							],
-							spacing=10,
-						),
-						padding=ft.Padding(12, 10, 12, 10),
-						bgcolor=PRIMARY_SOFT,
-						border_radius=12,
-					),
-					ft.Row(
-						[
-							self.start_button,
-							ft.IconButton(
-								icon=ft.Icons.REFRESH,
-								tooltip="타이머 초기화",
-								on_click=self.reset_timer,
-								style=ft.ButtonStyle(color=MUTED),
-							),
-							ft.IconButton(
-								icon=ft.Icons.SKIP_NEXT,
-								tooltip="단계 스킵",
-								on_click=self.skip_phase,
-								style=ft.ButtonStyle(color=MUTED),
-							),
-							self.mute_button,
-						],
-						spacing=2,
-						wrap=True,
-						run_spacing=4,
-					),
-				],
-				spacing=18,
-			),
-			bgcolor="#F0F5FF",
+			bgcolor=SURFACE,
 		)
 
 	def refresh(self) -> None:
@@ -356,8 +386,9 @@ class PlannerView:
 	def refresh_tasks(self) -> None:
 		tasks = self.planner.list_tasks()
 		selected = next((task for task in tasks if task.id == self.selected_task_id), None)
-		self.selected_task.value = f"집중 중: {selected.title}" if selected else "집중 항목 없음"
-		self.focus_target.value = selected.title if selected else "선택된 작업 없음"
+		self.selected_task.value = selected.title if selected else "선택 없음"
+		self.focus_target.value = selected.title if selected else "선택 없음"
+		self.task_count.value = str(len(tasks))
 
 		if self.task_filter == "active":
 			visible_tasks = [task for task in tasks if not task.completed]
@@ -373,22 +404,24 @@ class PlannerView:
 		self.update_filter_buttons()
 
 	def refresh_timer(self) -> None:
-		phase_names = {
-			Phase.WORK: "집중 시간",
-			Phase.SHORT_BREAK: "짧은 휴식",
-			Phase.LONG_BREAK: "긴 휴식",
-		}
-		self.phase_text.value = phase_names[self.timer.phase]
+		meta = PHASE_META[self.timer.phase]
+		self.phase_icon.name = meta["icon"]
+		self.phase_icon.color = meta["color"]
+		self.phase_text.value = meta["label"]
+		self.phase_text.color = meta["color"]
+		self.phase_badge.bgcolor = meta["soft"]
 		self.timer_text.value = format_seconds(self.timer.state.remaining_seconds)
 		self.progress.value = max(0, min(1, self.timer.state.remaining_seconds / self.timer.total_seconds))
-		self.start_button.text = "일시정지" if self.timer.is_running else "시작"
+		self.progress.color = meta["color"]
 		self.start_button.icon = ft.Icons.PAUSE if self.timer.is_running else ft.Icons.PLAY_ARROW
+		self.start_button.tooltip = "타이머 일시정지" if self.timer.is_running else "타이머 시작"
 		self.start_button.style = ft.ButtonStyle(
-			bgcolor=PRIMARY_DARK if self.timer.is_running else PRIMARY,
-			color=ft.Colors.WHITE,
-			padding=ft.Padding(22, 14, 22, 14),
-			shape=ft.RoundedRectangleBorder(radius=10),
+			bgcolor=PRIMARY_DARK if self.timer.is_running else meta["color"],
+			color=BACKGROUND,
+			padding=ft.Padding(16, 16, 16, 16),
+			shape=ft.RoundedRectangleBorder(radius=18),
 		)
+		self.mute_button.style = self.icon_button_style(MUTED, SURFACE_RAISED)
 
 	def set_filter(self, task_filter: str) -> None:
 		self.task_filter = task_filter
@@ -397,10 +430,10 @@ class PlannerView:
 
 	def update_filter_buttons(self) -> None:
 		for name, button in self.filter_buttons.items():
-			button.style = ft.ButtonStyle(
-				color=PRIMARY if name == self.task_filter else MUTED,
-				bgcolor=PRIMARY_SOFT if name == self.task_filter else SURFACE_ALT,
-				shape=ft.RoundedRectangleBorder(radius=8),
+			button.style = self.icon_button_style(
+				color=TEXT if name == self.task_filter else MUTED,
+				bgcolor=PRIMARY_SOFT if name == self.task_filter else "transparent",
+				radius=9,
 			)
 
 	@staticmethod
@@ -408,25 +441,46 @@ class PlannerView:
 		return ft.Container(
 			content=ft.Column(
 				[
-					ft.Icon(ft.Icons.INBOX_OUTLINED, size=32, color="#9AA8BB"),
-					ft.Text("표시할 작업이 없음", color=TEXT, weight=ft.FontWeight.BOLD),
-					ft.Text("새 작업을 추가해 시작하기", color=MUTED, size=12),
+					ft.Icon(ft.Icons.INBOX_OUTLINED, size=30, color=MUTED),
+					ft.Text("작업 없음", color=MUTED, size=13),
 				],
-				spacing=7,
+				spacing=8,
 				horizontal_alignment=ft.CrossAxisAlignment.CENTER,
 			),
-			padding=ft.Padding(20, 34, 20, 34),
+			padding=ft.Padding(18, 28, 18, 28),
 			bgcolor=SURFACE_ALT,
 			border_radius=12,
 		)
 
+	@staticmethod
+	def format_created_at(created_at: str) -> str:
+		if not created_at:
+			return ""
+		try:
+			created = datetime.fromisoformat(created_at)
+		except ValueError:
+			return ""
+		return created.strftime("%m월 %d일 %H:%M")
+
 	def task_row(self, task: Task) -> ft.Control:
 		text_style = (
-			ft.TextStyle(decoration=ft.TextDecoration.LINE_THROUGH, color="#9AA8BB")
+			ft.TextStyle(decoration=ft.TextDecoration.LINE_THROUGH, color="#68748A")
 			if task.completed
 			else ft.TextStyle(color=TEXT)
 		)
 		is_selected = task.id == self.selected_task_id
+		created_label = self.format_created_at(task.created_at)
+		task_details = [
+			ft.Text(task.title, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, selectable=True, style=text_style)
+		]
+		if created_label:
+			task_details.append(ft.Text(created_label, size=10, height=14, color=MUTED, max_lines=1, no_wrap=True))
+		task_info = ft.Column(
+			task_details,
+			spacing=0,
+			tight=True,
+			horizontal_alignment=ft.CrossAxisAlignment.START,
+		)
 		return ft.Container(
 			content=ft.Row(
 				[
@@ -434,37 +488,34 @@ class PlannerView:
 						value=task.completed,
 						on_change=self.toggle_task,
 						data=task.id,
-						fill_color="#B9CBEA",
-						check_color=PRIMARY,
-						overlay_color="#E7EEF9",
+						fill_color=SURFACE_RAISED,
+						check_color=MINT,
+						overlay_color=MINT_SOFT,
 					),
-					ft.Column(
-						[
-							ft.Text(task.title, expand=True, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS, selectable=True, style=text_style),
-							ft.Text("완료됨" if task.completed else "진행 중", size=11, color=SUCCESS if task.completed else MUTED),
-						],
-						spacing=2,
-						expand=True,
-					),
+					task_info,
+					ft.Container(expand=True),
 					ft.IconButton(
 						icon=ft.Icons.TIMER_OUTLINED,
 						tooltip="이 작업에 집중",
 						data=task.id,
 						on_click=self.select_task,
-						style=ft.ButtonStyle(color=PRIMARY if is_selected else MUTED),
+						style=self.icon_button_style(PRIMARY if is_selected else MUTED),
 					),
 					ft.IconButton(
 						icon=ft.Icons.DELETE_OUTLINE,
 						tooltip="삭제",
 						data=task.id,
 						on_click=self.delete_task,
-						style=ft.ButtonStyle(color=MUTED),
+						style=self.icon_button_style(DANGER),
 					),
 				],
 				vertical_alignment=ft.CrossAxisAlignment.CENTER,
+				intrinsic_height=True,
+				spacing=2,
 			),
-			padding=ft.Padding(8, 4, 8, 4),
-			bgcolor=PRIMARY_SOFT if is_selected else SURFACE,
+			height=64,
+			padding=ft.Padding(5, 6, 5, 6),
+			bgcolor=PRIMARY_SOFT if is_selected else SURFACE_ALT,
 			border=ft.Border.all(1, PRIMARY if is_selected else BORDER),
 			border_radius=12,
 		)
@@ -572,10 +623,10 @@ class PlannerView:
 
 
 def create_page(page: ft.Page, planner: Planner) -> None:
-	"""Configure and mount the combined planner page for ``ft.app``."""
-	page.title = "POPLA Focus Desk"
+	"""Configure and mount the dark timer-first planner page."""
+	page.title = "POPLA"
 	page.theme = ft.Theme(color_scheme_seed=PRIMARY, font_family=FONT_FAMILY)
-	page.theme_mode = ft.ThemeMode.LIGHT
+	page.theme_mode = ft.ThemeMode.DARK
 	page.bgcolor = BACKGROUND
 	page.padding = 0
 	view = PlannerView(page, planner)

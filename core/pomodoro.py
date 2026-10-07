@@ -3,17 +3,18 @@ from enum import Enum
 import math
 from numbers import Real
 
-
+# 시간 설정
 WORK_MINUTES = 25
 SHORT_BREAK_MINUTES = 5
 LONG_BREAK_MINUTES = 15
 
+# 상태 설정
 class Phase(str, Enum):
     WORK = "work"
     SHORT_BREAK = "short_break"
     LONG_BREAK = "long_break"
 
-
+# 상태 클래스
 @dataclass
 class PomodoroState:
     phase: Phase
@@ -21,7 +22,7 @@ class PomodoroState:
     remaining_seconds: float
     running: bool = False
 
-
+# 포모도로 클래스
 class PomodoroTimer:
     def __init__(
         self,
@@ -42,6 +43,7 @@ class PomodoroTimer:
             remaining_seconds=self.durations[Phase.WORK],
         )
 
+    # 페이즈, 실행 여부, 총 시간 반환
     @property
     def phase(self) -> Phase:
         return self.state.phase
@@ -54,6 +56,7 @@ class PomodoroTimer:
     def total_seconds(self) -> int:
         return self.durations[self.phase]
 
+    # 시작, 일시정지, 리셋, 스킵, 틱
     def start(self) -> None:
         self.state.running = True
 
@@ -75,7 +78,7 @@ class PomodoroTimer:
             raise ValueError("시간이 숫자가 아님")
         seconds = float(seconds)
         if seconds < 0:
-            raise ValueError("시간이 음수음")
+            raise ValueError("시간이 음수임")
         if not self.is_running or seconds == 0:
             return False
 
@@ -89,6 +92,7 @@ class PomodoroTimer:
         self.state.remaining_seconds -= seconds
         return transitioned
 
+    # 페이즈 전환
     def _advance_phase(self) -> None:
         if self.phase == Phase.WORK:
             cycle = self.state.cycle + 1
@@ -103,7 +107,7 @@ class PomodoroTimer:
             running=self.state.running,
         )
 
-
+# 시간 포맷
 def format_seconds(seconds: float) -> str:
     display_seconds = math.ceil(max(0.0, seconds))
     minutes, remaining_seconds = divmod(display_seconds, 60)
